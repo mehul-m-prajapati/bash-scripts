@@ -1,0 +1,59 @@
+#!/usr/bin/expect -f
+# Get Source and dest IP address from conf file
+set usage "Usage: icmp_req.exp <conf file>"
+set fd [lindex $argv 0]
+
+if { $fd == "" } {
+        puts $usage;
+	exit 1;
+}
+
+# Open and read conf file
+set fp [open "$fd" r]
+set data [read $fp]
+set src_ip_list {}
+set dest_ip ""
+
+# Read line by line
+foreach line $data {
+	
+	# Match substring 'src=' 
+	if { [string match src=* $line] == 1} {	
+		
+		# Get IP address value
+		set src_ip [string map {src= {}} $line]
+		
+		# Append source ips into a list
+		lappend src_ip_list $src_ip
+	}
+	if { [string match dest=* $line] == 1} {	
+		
+		# Get IP address value
+		set dest_ip [string map {dest= {}} $line]
+	}
+}
+
+if { $src_ip_list == "" } {
+        puts "source ip not found"
+        exit 1
+}
+if { $dest_ip == "" } {
+        puts "destination ip not found"
+        exit 1
+}
+
+# Capture ICMP packets
+spawn tcpdump -i eth1 -n dst $dest_ip and icmp
+
+# Listen for ICMP packets
+while {true} {
+  
+   expect {
+    -re "IP $src_ip \> $dest_ip\: ICMP" {
+        
+	if { [catch { exec ./send_snmptrap.sh $src_ip} msg] } {
+          puts "Something seems to have gone wrong with sending snmptrap but we will ignore it"
+      }
+    }
+  }
+}
