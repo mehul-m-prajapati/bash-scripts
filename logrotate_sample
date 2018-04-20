@@ -1,0 +1,8 @@
+/var/log/my_logs.txt {
+    daily
+        copytruncate
+    create 0600 root root
+        dateext
+        rotate 7
+        compress
+}
